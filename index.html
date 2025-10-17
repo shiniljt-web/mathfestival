@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부스36 몬테카를로, 넓이와 확률의 만남</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+            background-color: #111827; /* Dark background */
+            color: #f3f4f6;
+        }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+        .gallery-item {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            aspect-ratio: 1 / 1.414; /* A4 paper ratio */
+        }
+        .gallery-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+        }
+        /* Custom scrollbar for description */
+        .description-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .description-scroll::-webkit-scrollbar-track {
+            background: #2d3748;
+            border-radius: 10px;
+        }
+        .description-scroll::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 10px;
+        }
+        .description-scroll::-webkit-scrollbar-thumb:hover {
+            background: #718096;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Main Content --><div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-4">
+            <!-- "부스번호36" 컨테이너 --><div class="inline-block bg-cyan-700 text-white text-xl md:text-2xl font-bold py-2 px-6 rounded-full mb-4 shadow-lg">
+                부스번호36
+            </div>
+            <!-- "몬테카를로 넓이와 확률의 만남" 컨테이너 --><div class="inline-block bg-white text-gray-900 text-3xl md:text-4xl font-extrabold py-3 px-8 rounded-lg shadow-xl tracking-tight">
+                몬테카를로 넓이와 확률의 만남
+            </div>
+        </header>
+        <p class="text-center text-2xl md:text-3xl text-cyan-300 font-bold mb-12 tracking-wide">대전신일중학교 적분의 후예들</p>
+
+        <!-- Image Gallery --><main id="gallery" class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            <!-- Gallery items will be injected here by JavaScript --></main>
+    </div>
+
+    <!-- Image Viewer Modal --><div id="image-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+        <div class="relative w-full max-w-4xl max-h-full bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+            <img id="modal-img" src="" alt="확대된 이미지" class="w-full h-auto max-h-[80vh] object-contain">
+            <div class="p-4 bg-gray-900 bg-opacity-75 flex flex-col sm:flex-row items-center justify-center gap-4">
+                 <button id="open-audio-player-btn" class="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300">
+                    음성 설명 듣기
+                </button>
+            </div>
+            <button id="close-image-modal" class="absolute top-4 right-4 text-white bg-gray-900 bg-opacity-50 hover:bg-opacity-75 rounded-full p-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Audio Player Modal --><div id="audio-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden">
+        <div class="relative w-full h-full bg-gray-800 shadow-xl flex flex-col md:flex-row overflow-hidden">
+            <!-- Close button for audio modal --><button id="close-audio-modal" class="absolute top-6 right-6 z-10 text-white bg-gray-900 bg-opacity-50 hover:bg-opacity-75 rounded-full p-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            
+            <!-- Image section --><div class="w-full md:w-1/2 h-1/2 md:h-full bg-black flex items-center justify-center p-4">
+                <img id="audio-modal-img" src="" alt="설명 이미지" class="max-w-full max-h-full object-contain">
+            </div>
+
+            <!-- Content and Controls section --><div class="w-full md:w-1/2 h-1/2 md:h-full p-6 md:p-10 flex flex-col">
+                <h3 id="audio-modal-title" class="text-3xl font-bold text-cyan-400 mb-4"></h3>
+                <div class="flex-grow overflow-y-auto mb-4 pr-2 description-scroll">
+                    <p id="audio-modal-desc" class="text-gray-300 leading-relaxed text-lg"></p>
+                </div>
+                
+                <audio id="audio-player"></audio>
+
+                <!-- Audio Controls --><div class="mt-auto">
+                    <!-- Navigation Controls --><div class="flex justify-between items-center mb-4">
+                        <button id="prev-btn" class="p-3 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <button id="play-pause-btn" class="p-4 bg-cyan-500 hover:bg-cyan-600 rounded-full text-white transition-colors">
+                            <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                            <svg id="pause-icon" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 hidden" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <button id="next-btn" class="p-3 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
+                     <!-- Speed Control --><div class="flex justify-center">
+                        <button id="speed-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            재생 속도: 1.0x
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const galleryData = [
+                {
+                    img: '0.png', // 확장자 PNG로 변경
+                    audio: '0.mp3',
+                    title: '넓이 예측의 두 가지 방법',
+                    description: '공식으로 넓이를 구할 수 없는 도형은 어떻게 할까요? 격자법과 몬테카를로 방법을 통해 넓이를 예측할 수 있습니다. 격자가 촘촘해질수록, 점을 많이 찍을수록 실제 넓이에 가까워집니다.'
+                },
+                {
+                    img: '1.png', // 확장자 PNG로 변경
+                    audio: '1.mp3',
+                    title: '수학적 확률 vs 통계적 확률',
+                    description: '수학적 확률은 모든 경우의 수가 동일하게 일어날 것이라는 가정 하에 계산하는 이론적인 확률입니다. 반면, 통계적 확률은 실제 실험이나 관찰을 통해 얻은 결과를 바탕으로 계산하는 현실적인 확률입니다.'
+                },
+                {
+                    img: '2.png', // 확장자 PNG로 변경
+                    audio: '2.mp3',
+                    title: '격자법으로 넓이 찾기',
+                    description: '격자법은 도형 안에 들어오는 정사각형을 세거나, 도형에 걸치는 정사각형을 세어 넓이를 근사하는 방법입니다. 격자를 더 작게 만들수록 실제 넓이에 가까워집니다.'
+                },
+                {
+                    img: '3.png', // 확장자 PNG로 변경
+                    audio: '3.mp3',
+                    title: '넓이를 구하는 마법, 정적분',
+                    description: '정적분은 울퉁불퉁한 모양의 넓이를 구하기 위해 모양을 아주 잘게 썰어 더하는 기술입니다. 잘게 썰어낸 얇은 직사각형들의 넓이를 모두 더하여 전체 넓이를 구합니다.'
+                },
+                {
+                    img: '4.png', // 확장자 PNG로 변경
+                    audio: '4.mp3',
+                    title: '몬테카를로 방법으로 넓이 구하기',
+                    description: '몬테카를로 방법은 도형이 포함된 사각형 안에 무작위로 점을 찍어, 전체 점의 수와 도형 안의 점의 수의 비율을 이용하여 넓이를 어림짐작하는 방법입니다.'
+                },
+                {
+                    img: '5.png', // 확장자 PNG로 변경
+                    audio: '5.mp3',
+                    title: '두 양을 비교하는 기본, 비와 비율',
+                    description: "비와 비율은 두 양을 비교하는 가장 기본적인 방법입니다. '몇 대 몇'으로 비교하는 '비'와, 기준량에 대한 비교하는 양의 크기인 '비율'은 세상을 명확하게 이해하는 강력한 수학 도구입니다."
+                },
+                {
+                    img: '6.png', // 확장자 PNG로 변경
+                    audio: '6.mp3',
+                    title: '기본도형의 넓이 완전정복',
+                    description: '삼각형, 사각형, 원의 넓이를 구하는 것은 모든 도형의 크기를 이해하는 첫걸음입니다. 이 기본 원리를 통해 어떤 도형이든 여러 조각으로 나누어 넓이를 구할 수 있습니다.'
+                },
+                {
+                    img: '7.png', // 확장자 PNG로 변경
+                    audio: '7.mp3',
+                    title: '고대 이집트의 땅과 원의 넓이',
+                    description: '고대 이집트에서는 나일강의 범람 후 땅의 넓이를 다시 측정해야 했습니다. 밧줄을 이용하여 직각삼각형을 만들고, 이를 통해 땅의 넓이를 계산하는 등 실용적인 기하학이 발달했습니다.'
+                },
+            ];
+
+            const gallery = document.getElementById('gallery');
+            
+            // Modals
+            const imageModal = document.getElementById('image-modal');
+            const audioModal = document.getElementById('audio-modal');
+
+            // Modal Content
+            const modalImg = document.getElementById('modal-img');
+            const audioModalImg = document.getElementById('audio-modal-img');
+            const audioModalTitle = document.getElementById('audio-modal-title');
+            const audioModalDesc = document.getElementById('audio-modal-desc');
+            const audioPlayer = document.getElementById('audio-player');
+
+            // Buttons
+            const openAudioPlayerBtn = document.getElementById('open-audio-player-btn');
+            const closeImageModalBtn = document.getElementById('close-image-modal');
+            const closeAudioModalBtn = document.getElementById('close-audio-modal');
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const speedBtn = document.getElementById('speed-btn');
+
+            // Icons
+            const playIcon = document.getElementById('play-icon');
+            const pauseIcon = document.getElementById('pause-icon');
+
+            let currentIndex = 0;
+            let isPlaying = false;
+            let currentSpeed = 1.0;
+
+            // 1. Populate Gallery
+            galleryData.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'gallery-item bg-gray-700 rounded-lg overflow-hidden cursor-pointer';
+                div.innerHTML = `<img src="./${item.img}" alt="${item.title}" class="w-full h-full object-cover">`;
+                div.addEventListener('click', () => {
+                    openImageModal(index);
+                });
+                gallery.appendChild(div);
+            });
+
+            // 2. Modal Logic
+            function openImageModal(index) {
+                currentIndex = index;
+                modalImg.src = `./${galleryData[index].img}`;
+                imageModal.classList.remove('hidden');
+            }
+
+            function closeImageModal() {
+                imageModal.classList.add('hidden');
+            }
+
+            function openAudioPlayer(index) {
+                closeImageModal();
+                currentIndex = index;
+                loadTrack(currentIndex);
+                audioModal.classList.remove('hidden');
+            }
+            
+            function closeAudioPlayer() {
+                audioModal.classList.add('hidden');
+                pauseAudio();
+            }
+
+            // Event listeners for opening/closing modals
+            openAudioPlayerBtn.addEventListener('click', () => openAudioPlayer(currentIndex));
+            closeImageModalBtn.addEventListener('click', closeImageModal);
+            closeAudioModalBtn.addEventListener('click', closeAudioPlayer);
+
+            // Close modal by clicking on the backdrop
+            imageModal.addEventListener('click', (e) => {
+                if (e.target === imageModal) closeImageModal();
+            });
+            audioModal.addEventListener('click', (e) => {
+                if (e.target === audioModal.querySelector('.relative')) return; // Prevents closing when clicking on content
+                if (e.target === audioModal) closeAudioPlayer();
+            });
+
+            // 3. Audio Player Logic
+            function loadTrack(index) {
+                const track = galleryData[index];
+                audioModalImg.src = `./${track.img}`;
+                audioModalTitle.textContent = track.title;
+                audioModalDesc.textContent = track.description;
+                audioPlayer.src = `./${track.audio}`;
+                
+                audioPlayer.onloadedmetadata = () => {
+                    playAudio(); // Autoplay when a new track is loaded
+                };
+            }
+
+            function playAudio() {
+                audioPlayer.play();
+                isPlaying = true;
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+            }
+
+            function pauseAudio() {
+                audioPlayer.pause();
+                isPlaying = false;
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            }
+
+            function togglePlayPause() {
+                if (isPlaying) {
+                    pauseAudio();
+                } else {
+                    playAudio();
+                }
+            }
+            
+            function nextTrack() {
+                currentIndex = (currentIndex + 1) % galleryData.length;
+                loadTrack(currentIndex);
+            }
+
+            function prevTrack() {
+                currentIndex = (currentIndex - 1 + galleryData.length) % galleryData.length;
+                loadTrack(currentIndex);
+            }
+
+            function toggleSpeed() {
+                if (currentSpeed === 1.0) {
+                    currentSpeed = 2.0;
+                } else {
+                    currentSpeed = 1.0;
+                }
+                audioPlayer.playbackRate = currentSpeed;
+                speedBtn.textContent = `재생 속도: ${currentSpeed.toFixed(1)}x`;
+            }
+
+            // Event listeners for audio controls
+            playPauseBtn.addEventListener('click', togglePlayPause);
+            nextBtn.addEventListener('click', nextTrack);
+            prevBtn.addEventListener('click', prevTrack);
+            speedBtn.addEventListener('click', toggleSpeed);
+
+            // Go to next track when current one ends
+            audioPlayer.addEventListener('ended', nextTrack);
+        });
+    </script>
+</body>
+</html>
+
